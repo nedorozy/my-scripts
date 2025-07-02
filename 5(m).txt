@@ -7,14 +7,14 @@ local GuiService = game:GetService("GuiService")
 local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 local isDesktop = not isMobile
 
--- Создаём адаптивные размеры
-local BASE_SIZE = isMobile and 1.4 or 1
-local BUTTON_HEIGHT = 35 * BASE_SIZE
-local FRAME_WIDTH = 220 * BASE_SIZE
-local FRAME_HEIGHT = 200 * BASE_SIZE
-local LIST_WIDTH = 200 * BASE_SIZE
-local LIST_HEIGHT = 160 * BASE_SIZE
-local MINI_BUTTON_SIZE = 40 * BASE_SIZE
+-- Уменьшенные размеры (примерно 3/4 от оригинальных)
+local SCALE_FACTOR = 0.75
+local BUTTON_HEIGHT = 25 * SCALE_FACTOR
+local FRAME_WIDTH = 165 * SCALE_FACTOR
+local FRAME_HEIGHT = 135 * SCALE_FACTOR
+local LIST_WIDTH = 143 * SCALE_FACTOR
+local LIST_HEIGHT = 113 * SCALE_FACTOR
+local MINI_BUTTON_SIZE = 30 * SCALE_FACTOR
 
 -- Создаём GUI
 local screenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
@@ -38,7 +38,7 @@ hideButton.TextColor3 = Color3.new(1, 1, 1)
 hideButton.BackgroundColor3 = Color3.new(0.4, 0.4, 0.4)
 hideButton.TextScaled = true
 hideButton.ZIndex = 10
-hideButton.TextSize = 24 * BASE_SIZE
+hideButton.TextSize = 18 * SCALE_FACTOR
 hideButton.Visible = true
 
 -- Добавляем закруглённые углы
@@ -68,6 +68,7 @@ titleLabel.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
 titleLabel.TextScaled = true
 titleLabel.Active = true
 titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 14 * SCALE_FACTOR
 
 -- Закругление заголовка
 local titleCorner = Instance.new("UICorner", titleLabel)
@@ -81,7 +82,7 @@ closeButton.Text = "X"
 closeButton.TextColor3 = Color3.new(1, 1, 1)
 closeButton.BackgroundColor3 = Color3.new(0.8, 0, 0)
 closeButton.TextScaled = true
-closeButton.TextSize = 24 * BASE_SIZE
+closeButton.TextSize = 18 * SCALE_FACTOR
 
 -- Закругление кнопки закрытия
 local closeCorner = Instance.new("UICorner", closeButton)
@@ -90,12 +91,12 @@ closeCorner.CornerRadius = UDim.new(0.05, 0)
 -- Кнопка выбора игрока
 local dropdownButton = Instance.new("TextButton", frame)
 dropdownButton.Size = UDim2.new(1, -20, 0, BUTTON_HEIGHT)
-dropdownButton.Position = UDim2.new(0, 10, 0, BUTTON_HEIGHT + 10)
+dropdownButton.Position = UDim2.new(0, 10, 0, BUTTON_HEIGHT + 5)
 dropdownButton.Text = "Выбрать игрока"
 dropdownButton.TextColor3 = Color3.new(0, 0, 0)
 dropdownButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
 dropdownButton.TextScaled = true
-dropdownButton.TextSize = 18 * BASE_SIZE
+dropdownButton.TextSize = 14 * SCALE_FACTOR
 
 -- Закругление кнопки выбора
 local dropdownCorner = Instance.new("UICorner", dropdownButton)
@@ -107,7 +108,7 @@ playerList.Size = UDim2.new(0, LIST_WIDTH, 0, LIST_HEIGHT)
 playerList.Position = UDim2.new(0.5, 10, 0.5, -LIST_HEIGHT/2)
 playerList.BackgroundColor3 = Color3.new(0.25, 0.25, 0.25)
 playerList.Visible = false
-playerList.ScrollBarThickness = 8 * BASE_SIZE
+playerList.ScrollBarThickness = 6 * SCALE_FACTOR
 playerList.BorderSizePixel = 0
 playerList.ZIndex = 2
 playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -123,7 +124,7 @@ playerListContainer.BackgroundTransparency = 1
 playerListContainer.Name = "Container"
 
 local listLayout = Instance.new("UIListLayout", playerListContainer)
-listLayout.Padding = UDim.new(0, 5 * BASE_SIZE)
+listLayout.Padding = UDim.new(0, 4 * SCALE_FACTOR)
 listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- Автоматическое обновление размера скролла
@@ -134,12 +135,12 @@ end)
 -- Кнопка (три кавычки)
 local vibrateButton = Instance.new("TextButton", frame)
 vibrateButton.Size = UDim2.new(0.95, 0, 0, BUTTON_HEIGHT)
-vibrateButton.Position = UDim2.new(0.025, 0, 0, BUTTON_HEIGHT * 2 + 15)
+vibrateButton.Position = UDim2.new(0.025, 0, 0, BUTTON_HEIGHT * 2 + 10)
 vibrateButton.Text = '"""'
 vibrateButton.TextColor3 = Color3.new(1, 1, 1)
 vibrateButton.BackgroundColor3 = Color3.new(0.6, 0.2, 0.6)
 vibrateButton.TextScaled = true
-vibrateButton.TextSize = 24 * BASE_SIZE
+vibrateButton.TextSize = 18 * SCALE_FACTOR
 
 -- Закругление кнопки
 local vibrateCorner = Instance.new("UICorner", vibrateButton)
@@ -148,12 +149,12 @@ vibrateCorner.CornerRadius = UDim.new(0.1, 0)
 -- Кнопка прилипания
 local followButton = Instance.new("TextButton", frame)
 followButton.Size = UDim2.new(0.45, 0, 0, BUTTON_HEIGHT)
-followButton.Position = UDim2.new(0.025, 0, 0, BUTTON_HEIGHT * 3 + 20)
+followButton.Position = UDim2.new(0.025, 0, 0, BUTTON_HEIGHT * 3 + 15)
 followButton.Text = "Прилипание"
 followButton.TextColor3 = Color3.new(1, 1, 1)
 followButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
 followButton.TextScaled = true
-followButton.TextSize = 16 * BASE_SIZE
+followButton.TextSize = 12 * SCALE_FACTOR
 
 -- Закругление кнопки
 local followCorner = Instance.new("UICorner", followButton)
@@ -162,12 +163,12 @@ followCorner.CornerRadius = UDim.new(0.1, 0)
 -- Кнопка телепорта
 local teleportButton = Instance.new("TextButton", frame)
 teleportButton.Size = UDim2.new(0.45, 0, 0, BUTTON_HEIGHT)
-teleportButton.Position = UDim2.new(0.525, 0, 0, BUTTON_HEIGHT * 3 + 20)
+teleportButton.Position = UDim2.new(0.525, 0, 0, BUTTON_HEIGHT * 3 + 15)
 teleportButton.Text = "Телепорт"
 teleportButton.TextColor3 = Color3.new(1, 1, 1)
 teleportButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
 teleportButton.TextScaled = true
-teleportButton.TextSize = 16 * BASE_SIZE
+teleportButton.TextSize = 12 * SCALE_FACTOR
 
 -- Закругление кнопки
 local teleportCorner = Instance.new("UICorner", teleportButton)
@@ -228,7 +229,7 @@ local function createPlayerButton(playerName)
     button.TextScaled = true
     button.ZIndex = 3
     button.AutoButtonColor = true
-    button.TextSize = 16 * BASE_SIZE
+    button.TextSize = 12 * SCALE_FACTOR
     button.Parent = playerListContainer
     
     -- Закругление кнопки
@@ -283,7 +284,7 @@ local function smoothMove(element, input)
 end
 
 -- Универсальная функция для начала перетаскивания
-local function startDragging(input, element, offsetVar)
+local function startDragging(input, element)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or 
        input.UserInputType == Enum.UserInputType.Touch then
         
