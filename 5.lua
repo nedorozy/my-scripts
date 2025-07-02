@@ -1,0 +1,561 @@
+local player = game:GetService("Players").LocalPlayer
+local screenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+screenGui.Name = "PlayerToolsGUI"
+screenGui.Enabled = true
+screenGui.ResetOnSpawn = false
+
+-- Переменные для перемещения
+local draggingFrame = false
+local dragOffsetFrame = Vector2.new(0, 0)
+local draggingButton = false
+local dragOffsetButton = Vector2.new(0, 0)
+
+-- Маленькая кнопка для сворачивания/разворачивания
+local hideButton = Instance.new("TextButton", screenGui)
+hideButton.Size = UDim2.new(0, 30, 0, 30)
+hideButton.Position = UDim2.new(0, 5, 0, 5)
+hideButton.Text = "-"
+hideButton.TextColor3 = Color3.new(1, 1, 1)
+hideButton.BackgroundColor3 = Color3.new(0.4, 0.4, 0.4)
+hideButton.TextScaled = true
+hideButton.ZIndex = 10
+hideButton.TextSize = 20
+hideButton.Visible = true
+
+-- Фрейм основного меню
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 200, 0, 180)
+frame.Position = UDim2.new(0.5, -100, 0.5, -90)
+frame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+frame.Visible = true
+frame.Active = true
+frame.Draggable = false
+
+-- Заголовок (для перемещения)
+local titleLabel = Instance.new("TextLabel", frame)
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.Text = "Выберите игрока"
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
+titleLabel.TextScaled = true
+titleLabel.Active = true
+
+-- Кнопка закрытия
+local closeButton = Instance.new("TextButton", frame)
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -30, 0, 0)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.BackgroundColor3 = Color3.new(0.8, 0, 0)
+closeButton.TextScaled = true
+closeButton.TextSize = 20
+
+-- Кнопка выбора игрока
+local dropdownButton = Instance.new("TextButton", frame)
+dropdownButton.Size = UDim2.new(1, -10, 0, 30)
+dropdownButton.Position = UDim2.new(0, 5, 0, 40)
+dropdownButton.Text = "Выбрать игрока"
+dropdownButton.TextColor3 = Color3.new(0, 0, 0)
+dropdownButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
+dropdownButton.TextScaled = true
+
+-- Список игроков
+local playerList = Instance.new("ScrollingFrame", screenGui)
+playerList.Size = UDim2.new(0, 190, 0, 150)
+playerList.Position = UDim2.new(0.5, 105, 0.5, -75)
+playerList.BackgroundColor3 = Color3.new(0.25, 0.25, 0.25)
+playerList.Visible = false
+playerList.ScrollBarThickness = 8
+playerList.BorderSizePixel = 0
+playerList.ZIndex = 2
+playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+-- Контейнер для кнопок с автоматическим расположением
+local playerListContainer = Instance.new("Frame", playerList)
+playerListContainer.Size = UDim2.new(1, 0, 1, 0)
+playerListContainer.BackgroundTransparency = 1
+playerListContainer.Name = "Container"
+
+local listLayout = Instance.new("UIListLayout", playerListContainer)
+listLayout.Padding = UDim.new(0, 5)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Автоматическое обновление размера скролла
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    playerList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+end)
+
+-- Кнопка (три кавычки)
+local vibrateButton = Instance.new("TextButton", frame)
+vibrateButton.Size = UDim2.new(0.95, 0, 0, 30)
+vibrateButton.Position = UDim2.new(0.025, 0, 0, 80)
+vibrateButton.Text = '"""'
+vibrateButton.TextColor3 = Color3.new(1, 1, 1)
+vibrateButton.BackgroundColor3 = Color3.new(0.6, 0.2, 0.6)
+vibrateButton.TextScaled = true
+
+-- Кнопка прилипания
+local followButton = Instance.new("TextButton", frame)
+followButton.Size = UDim2.new(0.45, 0, 0, 30)
+followButton.Position = UDim2.new(0.025, 0, 0, 120)
+followButton.Text = "Прилипание"
+followButton.TextColor3 = Color3.new(1, 1, 1)
+followButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
+followButton.TextScaled = true
+
+-- Кнопка телепорта
+local teleportButton = Instance.new("TextButton", frame)
+teleportButton.Size = UDim2.new(0.45, 0, 0, 30)
+teleportButton.Position = UDim2.new(0.525, 0, 0, 120)
+teleportButton.Text = "Телепорт"
+teleportButton.TextColor3 = Color3.new(1, 1, 1)
+teleportButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
+teleportButton.TextScaled = true
+
+-- Логика работы
+local following = false
+local vibrating = false
+local targetPlayer = nil
+local followConnection
+local vibrateConnection
+
+-- Функции для управления коллизиями
+local function disableCollisions(character)
+    if character then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+local function enableCollisions(character)
+    if character then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+-- Защита от урона при падении
+local function setupFallDamageProtection(character)
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        -- Отключаем урон от падения
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        
+        -- Сбрасываем расстояние падения
+        if humanoid:GetState() == Enum.HumanoidStateType.FallingDown then
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        end
+    end
+end
+
+-- Функция создания кнопок игроков
+local function createPlayerButton(playerName)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Text = playerName
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.BackgroundColor3 = Color3.new(0.35, 0.35, 0.35)
+    button.TextScaled = true
+    button.ZIndex = 3
+    button.AutoButtonColor = true
+    button.Parent = playerListContainer
+    
+    button.MouseButton1Click:Connect(function()
+        targetPlayer = game.Players:FindFirstChild(playerName)
+        if targetPlayer then
+            local displayName = playerName
+            if #playerName > 15 then
+                displayName = string.sub(playerName, 1, 13) .. "..."
+            end
+            dropdownButton.Text = "Выбран: " .. displayName
+        end
+        playerList.Visible = false
+    end)
+    
+    return button
+end
+
+-- Обновление списка игроков
+local function updatePlayerList()
+    for _, child in ipairs(playerListContainer:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            createPlayerButton(otherPlayer.Name)
+        end
+    end
+end
+
+-- Плавное перемещение элементов
+local function smoothMove(element, input)
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    
+    if element == frame then
+        local newX = math.clamp(input.Position.X - dragOffsetFrame.X, 0, viewportSize.X - frame.AbsoluteSize.X)
+        local newY = math.clamp(input.Position.Y - dragOffsetFrame.Y, 0, viewportSize.Y - frame.AbsoluteSize.Y)
+        
+        frame.Position = UDim2.new(0, newX, 0, newY)
+    elseif element == hideButton then
+        local newX = math.clamp(input.Position.X - dragOffsetButton.X, 0, viewportSize.X - hideButton.AbsoluteSize.X)
+        local newY = math.clamp(input.Position.Y - dragOffsetButton.Y, 0, viewportSize.Y - hideButton.AbsoluteSize.Y)
+        
+        hideButton.Position = UDim2.new(0, newX, 0, newY)
+    end
+end
+
+-- Обработчики перемещения для основного окна
+titleLabel.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingFrame = true
+        local mousePos = input.Position
+        local framePos = frame.AbsolutePosition
+        dragOffsetFrame = Vector2.new(mousePos.X - framePos.X, mousePos.Y - framePos.Y)
+    end
+end)
+
+titleLabel.InputChanged:Connect(function(input)
+    if draggingFrame and input.UserInputType == Enum.UserInputType.MouseMovement then
+        smoothMove(frame, input)
+    end
+end)
+
+titleLabel.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingFrame = false
+    end
+end)
+
+-- Обработчики перемещения для маленькой кнопки
+hideButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingButton = true
+        local mousePos = input.Position
+        local buttonPos = hideButton.AbsolutePosition
+        dragOffsetButton = Vector2.new(mousePos.X - buttonPos.X, mousePos.Y - buttonPos.Y)
+    end
+end)
+
+hideButton.InputChanged:Connect(function(input)
+    if draggingButton and input.UserInputType == Enum.UserInputType.MouseMovement then
+        smoothMove(hideButton, input)
+    end
+end)
+
+hideButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingButton = false
+    end
+end)
+
+-- Инициализация списка игроков
+updatePlayerList()
+game.Players.PlayerAdded:Connect(updatePlayerList)
+game.Players.PlayerRemoving:Connect(updatePlayerList)
+
+-- Обработчики кнопок
+local RunService = game:GetService("RunService")
+
+-- ФУНКЦИЯ ПРИЛИПАНИЯ
+followButton.MouseButton1Click:Connect(function()
+    following = not following
+    followButton.BackgroundColor3 = following and Color3.new(0, 1, 0) or Color3.new(0.2, 0.6, 0.2)
+    
+    if following then
+        if followConnection then
+            followConnection:Disconnect()
+        end
+        
+        if player.Character then
+            disableCollisions(player.Character)
+            setupFallDamageProtection(player.Character)
+        end
+        
+        followConnection = RunService.Heartbeat:Connect(function(deltaTime)
+            if not following or not targetPlayer then return end
+            
+            local targetChar = targetPlayer.Character
+            local playerChar = player.Character
+            
+            if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then
+                following = false
+                followButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
+                return
+            end
+            
+            if not playerChar or not playerChar:FindFirstChild("HumanoidRootPart") then
+                following = false
+                followButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
+                return
+            end
+            
+            -- Защита от урона
+            if playerChar.Humanoid:GetState() == Enum.HumanoidStateType.FallingDown then
+                playerChar.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+            
+            local targetHRP = targetChar.HumanoidRootPart
+            local playerHRP = playerChar.HumanoidRootPart
+            
+            -- Рассчитываем новую позицию строго за спиной
+            local offset = 2.8
+            local verticalOffset = Vector3.new(0, 0.7, 0)
+            
+            -- Получаем направление взгляда игрока (игнорируя наклон вверх/вниз)
+            local lookVector = Vector3.new(targetHRP.CFrame.LookVector.X, 0, targetHRP.CFrame.LookVector.Z).Unit
+            
+            -- Случайное смещение для меньшей заметности
+            local randomOffset = Vector3.new(
+                (math.random() - 0.5) * 0.4,
+                0,
+                (math.random() - 0.5) * 0.4
+            )
+            
+            local behindPosition = targetHRP.Position - (lookVector * offset) + verticalOffset + randomOffset
+            
+            -- Плавное перемещение
+            local lerpFactor = math.min(1, 10 * deltaTime)
+            
+            -- Сохраняем текущую высоту для плавности
+            local currentY = playerHRP.Position.Y
+            local targetPosition = Vector3.new(behindPosition.X, currentY, behindPosition.Z)
+            
+            -- Плавно корректируем высоту
+            if math.abs(targetPosition.Y - behindPosition.Y) > 0.1 then
+                targetPosition = Vector3.new(targetPosition.X, behindPosition.Y, targetPosition.Z)
+            end
+            
+            -- Интерполяция позиции и поворота
+            local targetCFrame = CFrame.new(targetPosition, targetPosition + lookVector)
+            playerHRP.CFrame = playerHRP.CFrame:Lerp(targetCFrame, lerpFactor)
+            
+            playerHRP.Velocity = Vector3.new(0, 0, 0)
+            playerHRP.RotVelocity = Vector3.new(0, 0, 0)
+            
+            -- Сбрасываем урон от падения
+            playerChar.Humanoid.FallDistance = 0
+        end)
+    elseif followConnection then
+        followConnection:Disconnect()
+        followConnection = nil
+        if player.Character then
+            enableCollisions(player.Character)
+        end
+    end
+end)
+
+-- ФУНКЦИЯ ТРИ КАВЫЧКИ
+vibrateButton.MouseButton1Click:Connect(function()
+    vibrating = not vibrating
+    vibrateButton.BackgroundColor3 = vibrating and Color3.new(1, 0, 1) or Color3.new(0.6, 0.2, 0.6)
+    
+    if vibrating then
+        if vibrateConnection then
+            vibrateConnection:Disconnect()
+        end
+        
+        if player.Character then
+            disableCollisions(player.Character)
+            setupFallDamageProtection(player.Character)
+        end
+        
+        -- Переменные для вибрации
+        local minDistance = 1.8
+        local maxDistance = 4.0
+        local vibrationSpeed = 16
+        local time = 0
+        
+        vibrateConnection = RunService.Heartbeat:Connect(function(deltaTime)
+            if not vibrating or not targetPlayer then return end
+            
+            local targetChar = targetPlayer.Character
+            local playerChar = player.Character
+            
+            if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then
+                vibrating = false
+                vibrateButton.BackgroundColor3 = Color3.new(0.6, 0.2, 0.6)
+                return
+            end
+            
+            if not playerChar or not playerChar:FindFirstChild("HumanoidRootPart") then
+                vibrating = false
+                vibrateButton.BackgroundColor3 = Color3.new(0.6, 0.2, 0.6)
+                return
+            end
+            
+            -- Защита от урона
+            if playerChar.Humanoid:GetState() == Enum.HumanoidStateType.FallingDown then
+                playerChar.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+            
+            local targetHRP = targetChar.HumanoidRootPart
+            local playerHRP = playerChar.HumanoidRootPart
+            
+            -- Получаем направление взгляда игрока (игнорируя наклон)
+            local lookVector = Vector3.new(targetHRP.CFrame.LookVector.X, 0, targetHRP.CFrame.LookVector.Z).Unit
+            
+            -- Плавное изменение расстояния
+            time = time + deltaTime
+            local currentDistance = minDistance + (maxDistance - minDistance) * (math.sin(time * vibrationSpeed) + 1) / 2
+            
+            -- Рассчитываем новую позицию
+            local verticalOffset = Vector3.new(0, 0.7, 0)
+            local behindPosition = targetHRP.Position - (lookVector * currentDistance) + verticalOffset
+            
+            -- Случайное смещение
+            local randomOffset = Vector3.new(
+                (math.random() - 0.5) * 0.5,
+                0,
+                (math.random() - 0.5) * 0.5
+            )
+            behindPosition = behindPosition + randomOffset
+            
+            -- Плавное перемещение
+            local lerpFactor = math.min(1, 24 * deltaTime)
+            
+            -- Интерполяция позиции и поворота
+            local targetCFrame = CFrame.new(behindPosition, behindPosition + lookVector)
+            playerHRP.CFrame = playerHRP.CFrame:Lerp(targetCFrame, lerpFactor)
+            
+            playerHRP.Velocity = Vector3.new(0, 0, 0)
+            playerHRP.RotVelocity = Vector3.new(0, 0, 0)
+            
+            -- Сбрасываем урон от падения
+            playerChar.Humanoid.FallDistance = 0
+        end)
+    elseif vibrateConnection then
+        vibrateConnection:Disconnect()
+        vibrateConnection = nil
+        if player.Character then
+            enableCollisions(player.Character)
+        end
+    end
+end)
+
+-- ФУНКЦИЯ ТЕЛЕПОРТАЦИИ
+teleportButton.MouseButton1Click:Connect(function()
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            -- Отключаем коллизии на время телепортации
+            local originalCanCollide = {}
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    originalCanCollide[part] = part.CanCollide
+                    part.CanCollide = false
+                end
+            end
+            
+            -- Безопасное позиционирование
+            local offset = 2.0
+            local verticalOffset = Vector3.new(0, 0.5, 0)
+            local targetHRP = targetPlayer.Character.HumanoidRootPart
+            local behindPosition = targetHRP.Position - (targetHRP.CFrame.LookVector * offset) + verticalOffset
+            
+            -- Телепортация
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(behindPosition, targetHRP.Position)
+            
+            -- Восстанавливаем коллизии
+            task.wait(0.1)
+            for part, canCollide in pairs(originalCanCollide) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = canCollide
+                end
+            end
+            
+            -- Сбрасываем скорость
+            player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            player.Character.HumanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+            
+            -- Защита от урона
+            setupFallDamageProtection(player.Character)
+        end
+    end
+end)
+
+dropdownButton.MouseButton1Click:Connect(function()
+    playerList.Visible = not playerList.Visible
+    if playerList.Visible then
+        updatePlayerList()
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+    if followConnection then followConnection:Disconnect() end
+    if vibrateConnection then vibrateConnection:Disconnect() end
+end)
+
+hideButton.MouseButton1Click:Connect(function()
+    frame.Visible = not frame.Visible
+end)
+
+-- Закрытие списка игроков при клике вне его
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = input.Position
+        if playerList.Visible then
+            if not playerList.AbsoluteRect:PointInside(mousePos) and 
+               not dropdownButton.AbsoluteRect:PointInside(mousePos) then
+                playerList.Visible = false
+            end
+        end
+    end
+end
+
+game:GetService("UserInputService").InputBegan:Connect(onInputBegan)
+
+-- Обработка смерти игрока
+player.CharacterAdded:Connect(function(character)
+    character:WaitForChild("Humanoid").Died:Connect(function()
+        -- Отключаем режимы при смерти
+        following = false
+        vibrating = false
+        followButton.BackgroundColor3 = Color3.new(0.2, 0.6, 0.2)
+        vibrateButton.BackgroundColor3 = Color3.new(0.6, 0.2, 0.6)
+        
+        if followConnection then
+            followConnection:Disconnect()
+            followConnection = nil
+        end
+        
+        if vibrateConnection then
+            vibrateConnection:Disconnect()
+            vibrateConnection = nil
+        end
+        
+        -- Восстанавливаем коллизии
+        enableCollisions(character)
+    end)
+    
+    -- Настраиваем защиту при возрождении
+    setupFallDamageProtection(character)
+end)
+
+-- Включение/выключение GUI по клавише X
+local UserInputService = game:GetService("UserInputService")
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.X and not gameProcessed then
+        screenGui.Enabled = not screenGui.Enabled
+        
+        if screenGui.Enabled then
+            updatePlayerList()
+            -- Центрируем GUI при открытии
+            frame.Position = UDim2.new(0.5, -100, 0.5, -90)
+            hideButton.Position = UDim2.new(0, 5, 0, 5)
+        end
+    end
+end)
