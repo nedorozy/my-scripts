@@ -1,0 +1,203 @@
+-- Улучшенный скрипт с GUI для включения/выключения притягивания предметов
+local Player = game.Players.LocalPlayer
+local Mouse = Player:GetMouse()
+
+-- Создаём инструмент
+local tool = Instance.new("Tool")
+tool.RequiresHandle = false
+tool.Name = "Equip to tp black hole"
+tool.Parent = Player.Backpack
+
+-- Получаем humanoid персонажа
+local Humanoid = Player.Character and Player.Character:FindFirstChild("Humanoid")
+
+-- Создаём папку и часть с Attachment для притяжения
+local Folder = Instance.new("Folder", workspace)
+Folder.Name = "BlackHoleFolder"
+local Part = Instance.new("Part", Folder)
+Part.Anchored = true
+Part.CanCollide = false
+Part.Transparency = 1 -- Сделаем полностью прозрачным
+local Attachment1 = Instance.new("Attachment", Part)
+
+-- Позиция притяжения (обновляется мышью)
+local Updated = Mouse.Hit + Vector3.new(0, 2, 0)
+
+-- Флаг включения/выключения притягивания
+local attractEnabled = false
+
+-- Функция для обработки частей
+local function ForcePart(v)
+	if not attractEnabled then return end -- Если притягивание выключено, ничего не делаем
+	if v:IsA("BasePart") and v.Anchored == false and v.Parent:FindFirstChild("Humanoid") == nil and v.Parent:FindFirstChild("Head") == nil and v.Name ~= "Handle" then
+		Mouse.TargetFilter = v
+		-- Удаляем старые объекты управления физикой
+		if v:FindFirstChild("Attachment") then v:FindFirstChild("Attachment"):Destroy() end
+		if v:FindFirstChild("AlignPosition") then v:FindFirstChild("AlignPosition"):Destroy() end
+		if v:FindFirstChild("Torque") then v:FindFirstChild("Torque"):Destroy() end
+
+		v.CanCollide = false
+
+		-- Создаём новые объекты для притяжения
+		local Torque = Instance.new("Torque", v)
+		Torque.Torque = Vector3.new(100000, 100000, 100000)
+		local AlignPosition = Instance.new("AlignPosition", v)
+		local Attachment2 = Instance.new("Attachment", v)
+
+		Torque.Attachment0 = Attachment2
+		AlignPosition.MaxForce = 9999999999999999
+		AlignPosition.MaxVelocity = math.huge
+		AlignPosition.Responsiveness = 200
+		AlignPosition.Attachment0 = Attachment2
+		AlignPosition.Attachment1 = Attachment1
+	end
+end
+
+-- Обрабатываем все части в workspace при включённом притяжении
+local function ProcessWorkspaceParts()
+	if attractEnabled then
+		for _, v in next, workspace:GetDescendants() do
+			ForcePart(v)
+		end
+	end
+end
+
+-- Обновляем позицию Attachment1 в цикле
+local RunService = game:GetService("RunService")
+local updateAttachmentConnection
+
+-- Запуск бесконечного цикла для обновления Attachment1.WorldCFrame
+local function StartAttachmentUpdate()
+	updateAttachmentConnection = RunService.RenderStepped:Connect(function()
+		Attachment1.WorldCFrame = Updated
+	end)
+end
+
+local function StopAttachmentUpdate()
+	if updateAttachmentConnection then
+		updateAttachmentConnection:Disconnect()
+		updateAttachmentConnection = nil
+	end
+end
+
+-- Создаём GUI
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BlackHoleGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = Player:WaitForChild("PlayerGui")
+
+-- Основной фрейм
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 120)
+frame.Position = UDim2.new(0.5, -125, 0.7, 0)
+frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+frame.BorderSizePixel = 0
+frame.Visible = true
+frame.Active = true
+frame.Draggable = true
+
+-- Заголовок
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+title.TextColor3 = Color3.new(1,1,1)
+title.Text = "Black Hole Control"
+title.TextScaled = true
+title.Font = Enum.Font.SourceSansBold
+
+-- Кнопка сворачивания
+local minimizeButton = Instance.new("TextButton", frame)
+minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+minimizeButton.Position = UDim2.new(1, -35, 0, 0)
+minimizeButton.Text = "-"
+minimizeButton.TextColor3 = Color3.new(1,1,1)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
+minimizeButton.TextScaled = true
+minimizeButton.Font = Enum.Font.SourceSansBold
+
+-- Кнопка закрытия
+local closeButton = Instance.new("TextButton", frame)
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -70, 0, 0)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.new(1,1,1)
+closeButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.SourceSansBold
+
+-- Кнопка включения/выключения притягивания
+local toggleButton = Instance.new("TextButton", frame)
+toggleButton.Size = UDim2.new(0, 200, 0, 50)
+toggleButton.Position = UDim2.new(0.5, -100, 0, 40)
+toggleButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+toggleButton.TextColor3 = Color3.new(1,1,1)
+toggleButton.Text = "Включить притяжение"
+toggleButton.TextScaled = true
+toggleButton.Font = Enum.Font.SourceSansBold
+
+-- Минимизованная кнопка (появляется после сворачивания)
+local miniButton = Instance.new("TextButton", screenGui)
+miniButton.Size = UDim2.new(0, 40, 0, 40)
+miniButton.Position = UDim2.new(0, 10, 0.7, 0)
+miniButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+miniButton.TextColor3 = Color3.new(1,1,1)
+miniButton.Text = "BH"
+miniButton.TextScaled = true
+miniButton.Font = Enum.Font.SourceSansBold
+miniButton.Visible = false
+
+-- Логика кнопок
+
+minimizeButton.MouseButton1Click:Connect(function()
+	frame.Visible = false
+	miniButton.Visible = true
+end)
+
+miniButton.MouseButton1Click:Connect(function()
+	frame.Visible = true
+	miniButton.Visible = false
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+	StopAttachmentUpdate()
+end)
+
+toggleButton.MouseButton1Click:Connect(function()
+	attractEnabled = not attractEnabled
+	if attractEnabled then
+		toggleButton.Text = "Выключить притяжение"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+		ProcessWorkspaceParts()
+		StartAttachmentUpdate()
+	else
+		toggleButton.Text = "Включить притяжение"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+		StopAttachmentUpdate()
+		-- Не трогаем предметы, чтобы они остались на месте
+	end
+end)
+
+-- Обработка новых деталей в workspace при включённом притяжении
+workspace.DescendantAdded:Connect(function(v)
+	if attractEnabled then
+		ForcePart(v)
+	end
+end)
+
+-- Обновляем позицию Updated при клике мыши с инструментом
+tool.Activated:Connect(function()
+	if Mouse.Button1Down then
+		Updated = Mouse.Hit + Vector3.new(0, 2, 0)
+	end
+end)
+
+-- При смерти персонажа очищаем всё
+if Humanoid then
+	Humanoid.Died:Connect(function()
+		StopAttachmentUpdate()
+		if Folder then Folder:Destroy() end
+		script:Destroy()
+	end)
+end
